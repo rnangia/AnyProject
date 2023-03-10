@@ -1,0 +1,74 @@
+version: '2'
+
+volumes:
+  postgres_data_dev: {}
+  postgres_backup_dev: {}
+  elasticsearch_data: {}
+
+services:
+  postgres:
+    build: ./compose/postgres/dev
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - postgres_backup_dev:/backups
+    environment:
+      - POSTGRES_USER=ENTEREDPOSTGRESUSERDEV
+      - POSTGRES_PASSWORD=ENTEREDPOSTGRESPASSWORDDEV
+      - POSTGRES_DB=ENTEREDPOSTGRESDBDEV
+      - POSTGRES_HOST=ENTEREDPOSTGRESHOSTDEV
+      - POSTGRES_PORT=5432
+
+  webpack:
+    build:
+      context: .
+      dockerfile: ./compose/webpack/dev/Dockerfile
+    volumes_from:
+      - django:rw
+    environment:
+      NODE_ENV: production
+      HOST: ENTEREDHOSTIPDEV
+      PORT: 3000
+      APIHOST: ENTEREDAPIHOSTIPDEV
+      APIPORT: 8000
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.6.0
+    environment:
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - cluster.routing.allocation.disk.watermark.low=94%
+      - cluster.routing.allocation.disk.watermark.high=95%
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/var/lib/elasticsearch/data
+    ports:
+      - "9200:9200"
+
+  django:
+    build:
+      context: .
+      dockerfile: ./compose/django/dev/Dockerfile
+    command: /start-django.sh
+    depends_on:
+      - postgres
+      - elasticsearch
+    environment:
+      - POSTGRES_USER=ENTEREDPOSTGRESUSERDEV
+      - POSTGRES_PASSWORD=ENTEREDPOSTGRESPASSWORDDEV
+      - POSTGRES_DB=ENTEREDPOSTGRESDBDEV
+      - POSTGRES_HOST=ENTEREDPOSTGRESHOSTDEV
+      - POSTGRES_PORT=5432
+      - USE_DOCKER=yes
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    links:
+      - postgres
+    env_file: .env
